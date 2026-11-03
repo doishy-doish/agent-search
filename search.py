@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 """Query the local SearXNG service, save JSON results. stdlib only."""
-import json, os, sys, time, traceback, urllib.parse, urllib.request
+import json, os, sys, time, traceback, urllib.error, urllib.parse, urllib.request
 BASE = os.environ.get("SEARXNG_URL", "http://localhost:8888")
 QUERY = os.environ.get("SEARCH_QUERY", "USDC bounty open source")
 LIMIT = int(os.environ.get("SEARCH_LIMIT", "10"))
 CATEGORIES = os.environ.get("SEARCH_CATEGORIES", "general,it")
 OUT = os.environ.get("SEARCH_OUT", "results/results.json")
 UA = {"User-Agent": "Mozilla/5.0 (agent-search)", "Accept": "application/json"}
-def fetch(url, timeout):
-    req = urllib.request.Request(url, headers=UA)
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return r.status, r.read()
+def fetch(url, timeout, post=False):
+    data = urllib.parse.urlencode({"q": QUERY, "format": "json", "categories": CATEGORIES}).encode() if post else None
+    req = urllib.request.Request(url if not post else BASE + "/search", data=data, headers=UA)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return r.status, r.read()
+    except urllib.error.HTTPError as e:
+        return e.code, e.read()
 def wait_ready(timeout=150):
     s = time.time()
     last = ""
@@ -27,6 +31,8 @@ def wait_ready(timeout=150):
 def search(q):
     url = BASE + "/search?" + urllib.parse.urlencode({"q": q, "format": "json", "categories": CATEGORIES})
     st, body = fetch(url, 30)
+    if st == 403:
+        st, body = fetch(url, 30, post=True)
     if st != 200:
         raise RuntimeError(f"search -> HTTP {st}: {body[:300]!r}")
     try:
