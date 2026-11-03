@@ -1,4 +1,4 @@
-import json, os, urllib.request, urllib.parse
+import json, os, time, urllib.request, urllib.parse
 
 STREAM = os.environ.get("SEARCH_STREAM", "bot")
 TARGETS = [t.strip() for t in os.environ.get("SEARCH_TARGET", "bountic-bot").split(",") if t.strip()]
@@ -32,6 +32,7 @@ def bot_targets(targets):
             j = gh_get(url)
         except Exception:
             continue
+        time.sleep(10)
         for it in (j.get("items") or [])[:LIMIT]:
             items.append({"stream": "bot:" + name, "title": it.get("title", ""),
                           "url": it.get("html_url", ""), "content": (it.get("body") or "")[:300]})
