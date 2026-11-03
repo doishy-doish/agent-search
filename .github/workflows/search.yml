@@ -35,6 +35,15 @@ jobs:
           SEARCH_CATEGORIES: ${{ inputs.categories }}
         run: python3 search.py
       - uses: actions/upload-artifact@v4
+        if: success()
         with:
           name: search-results
           path: results/results.json
+      - name: report back
+        if: always()
+        run: |
+          git config user.name "agent-search"
+          git config user.email "agent-search@local"
+          git add results/ || true
+          git commit -m "run ${{ github.run_id }} report" || true
+          git push origin HEAD:runs || true
