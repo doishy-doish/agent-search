@@ -1,9 +1,11 @@
 import json, os, urllib.request, urllib.parse
 
 STREAM = os.environ.get("SEARCH_STREAM", "bot")
-TARGET = os.environ.get("SEARCH_TARGET", "bountic-bot")
+TARGETS = [t.strip() for t in os.environ.get("SEARCH_TARGET", "bountic-bot").split(",") if t.strip()]
 LIMIT = int(os.environ.get("SEARCH_LIMIT", "10"))
 GHTOKEN = os.environ.get("GITHUB_TOKEN", "")
+RPCS = ["https://base-rpc.publicnode.com", "https://base.meowrpc.com"]
+
 
 def gh_get(url):
     headers = {"Accept": "application/vnd.github+json", "User-Agent": "agent-search"}
@@ -13,28 +15,33 @@ def gh_get(url):
     with urllib.request.urlopen(req, timeout=30) as r:
         return json.load(r)
 
+
 def rpc_post(url, method, params):
     payload = json.dumps({"jsonrpc": "2.0", "method": method, "params": params, "id": 1}).encode()
     req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
     with urllib.request.urlopen(req, timeout=30) as r:
         return json.load(r)
 
-def bot_stream():
-    q = "commenter:app/%s is:open is:issue" % TARGET
-    url = "https://api.github.com/search/issues?q=" + urllib.parse.quote(q) + "&per_page=%d" % LIMIT
-    try:
-        j = gh_get(url)
-    except Exception as e:
-        return "commenter:app/%s" % TARGET, []
-    items = []
-    for it in (j.get("items") or [])[:LIMIT]:
-        items.append({"title": it.get("title", ""), "url": it.get("html_url", ""), "content": (it.get("body") or "")[:300]})
-    return q, items
 
-def base_stream():
-    eps = ["https://base-rpc.publicnode.com"]
+def bot_targets(targets):
+    items = []
+    for name in targets:
+        q = "commenter:app/%s is:open is:issue" % name
+        url = "https://api.github.com/search/issues?q=" + urllib.parse.quote(q) + "&per_page=%d" % LIMIT
+        try:
+            j = gh_get(url)
+        except Exception:
+            continue
+        for it in (j.get("items") or [])[:LIMIT]:
+            items.append({"stream": "bot:" + name, "title": it.get("title", ""),
+                          "url": it.get("html_url", ""), "content": (it.get("body") or "")[:300]})
+    return "bot-watch:" + ",".join(targets), items
+
+
+def base_targets(addrs):
     cur = None
-    for ep in eps:
+    rpc_url = None
+    for ep in RPCS:
         try:
             b = rpc_post(ep, "eth_blockNumber", [])
             cur = int(b["result"], 16)
@@ -43,23 +50,27 @@ def base_stream():
         except Exception:
             continue
     if cur is None:
-        return "base-logs:%s" % TARGET, []
-    frm = hex(cur - 2000)
-    try:
-        g = rpc_post(rpc_url, "eth_getLogs", [{"address": TARGET, "fromBlock": frm, "toBlock": "latest"}])
-        logs = g.get("result") or []
-    except Exception:
-        logs = []
+        return "base-watch:" + ",".join(addrs), []
     items = []
-    for l in logs[:LIMIT]:
-        tx = l.get("transactionHash", "")
-        items.append({"title": tx, "url": "https://basescan.org/tx/" + tx, "content": "block %s topics %s" % (l.get("blockNumber"), json.dumps(l.get("topics", [])))})
-    return "base-logs:%s" % TARGET, items
+    for addr in addrs:
+        try:
+            g = rpc_post(rpc_url, "eth_getLogs",
+                         [{"address": addr, "fromBlock": hex(cur - 2000), "toBlock": "latest"}])
+            logs = g.get("result") or []
+        except Exception:
+            continue
+        for l in logs[:LIMIT]:
+            tx = l.get("transactionHash", "")
+            items.append({"stream": "base:" + addr, "title": tx,
+                          "url": "https://basescan.org/tx/" + tx,
+                          "content": "block %s t0 %s" % (l.get("blockNumber"), (l.get("topics") or ["?"])[0])})
+    return "base-watch:" + ",".join(addrs), items
+
 
 if STREAM == "base":
-    query, items = base_stream()
+    query, items = base_targets(TARGETS)
 else:
-    query, items = bot_stream()
+    query, items = bot_targets(TARGETS)
 
 os.makedirs("results", exist_ok=True)
 with open("results/results.json", "w") as f:
