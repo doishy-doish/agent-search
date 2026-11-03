@@ -1,38 +1,30 @@
-name: searxng-search
+name: direct-stream-search
 on:
   workflow_dispatch:
     inputs:
-      query:
-        description: "Search query"
-        default: "USDC bounty open source"
+      stream:
+        description: "Stream: bot (GitHub escrow-bot actor) or base (Base RPC logs)"
+        default: "bot"
+        required: true
+      target:
+        description: "Bot app short name (e.g. bountic-bot) or contract address"
+        default: "bountic-bot"
         required: true
       limit:
         description: "Max results"
         default: "10"
         required: true
-      categories:
-        description: "Searxng categories"
-        default: "general,it"
-        required: true
 jobs:
   search:
     runs-on: ubuntu-latest
-    services:
-      searxng:
-        image: searxng/searxng:latest
-        ports:
-          - 8888:8080
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: run search
+      - name: run direct stream
         env:
-          SEARXNG_URL: http://localhost:8888
-          SEARCH_QUERY: ${{ inputs.query }}
+          SEARCH_STREAM: ${{ inputs.stream }}
+          SEARCH_TARGET: ${{ inputs.target }}
           SEARCH_LIMIT: ${{ inputs.limit }}
-          SEARCH_CATEGORIES: ${{ inputs.categories }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 search.py
       - uses: actions/upload-artifact@v4
         if: success()
