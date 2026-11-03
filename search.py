@@ -14,7 +14,7 @@ def fetch(url, timeout, post=False):
         with urllib.request.urlopen(req, timeout=timeout) as r:
             return r.status, r.read()
     except urllib.error.HTTPError as e:
-        return e.code, e.read()
+        return e.code, e.read() + b"\nHDR:" + str(sorted(e.headers.items())).encode()
 def wait_ready(timeout=150):
     s = time.time()
     last = ""
@@ -34,7 +34,14 @@ def search(q):
     if st == 403:
         st, body = fetch(url, 30, post=True)
     if st != 200:
-        raise RuntimeError(f"search -> HTTP {st}: {body[:300]!r}")
+        probe = {}
+        for path in ["/config", "/healthz", "/stats/errors"]:
+            try:
+                pst, pbody = fetch(BASE + path, 10)
+                probe[path] = [pst, pbody[:200]]
+            except Exception as pe:
+                probe[path] = ["exc", str(pe)[:150]]
+        raise RuntimeError(f"search -> HTTP {st}: {body[:300]!r} PROBE={json.dumps(probe)[:800]}")
     try:
         data = json.loads(body)
     except Exception:
