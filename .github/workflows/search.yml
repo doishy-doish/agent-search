@@ -46,4 +46,4 @@ jobs:
           git config user.email "agent-search@local"
           git add results/ || true
           git commit -m "run ${{ github.run_id }} report" || true
-          git push origin HEAD:runs || true
+          git push --force origin HEAD:runs || true
