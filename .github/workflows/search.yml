@@ -1,0 +1,40 @@
+name: searxng-search
+on:
+  workflow_dispatch:
+    inputs:
+      query:
+        description: "Search query"
+        default: "USDC bounty open source"
+        required: true
+      limit:
+        description: "Max results"
+        default: "10"
+        required: true
+      categories:
+        description: "Searxng categories"
+        default: "general,it"
+        required: true
+jobs:
+  search:
+    runs-on: ubuntu-latest
+    services:
+      searxng:
+        image: searxng/searxng:latest
+        ports:
+          - 8888:8080
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: run search
+        env:
+          SEARXNG_URL: http://localhost:8888
+          SEARCH_QUERY: ${{ inputs.query }}
+          SEARCH_LIMIT: ${{ inputs.limit }}
+          SEARCH_CATEGORIES: ${{ inputs.categories }}
+        run: python3 search.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: search-results
+          path: results/results.json
