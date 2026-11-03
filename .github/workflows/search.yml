@@ -8,7 +8,7 @@ on:
         required: true
       target:
         description: "Comma watchlist: bot app short names or contract addresses"
-        default: "bountic-bot,algora-io,gitwork-io"
+        default: "bountic-bot,bountyhub-app,opire,algora-io,gitwork-io"
         required: true
       limit:
         description: "Max results per target"
@@ -24,7 +24,7 @@ jobs:
       - name: run direct stream
         env:
           SEARCH_STREAM: ${{ inputs.stream || 'bot' }}
-          SEARCH_TARGET: ${{ inputs.target || 'bountic-bot,algora-io,gitwork-io' }}
+          SEARCH_TARGET: ${{ inputs.target || 'bountic-bot,bountyhub-app,opire,algora-io,gitwork-io' }}
           SEARCH_LIMIT: ${{ inputs.limit || '10' }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 search.py
