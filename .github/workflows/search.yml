@@ -3,17 +3,19 @@ on:
   workflow_dispatch:
     inputs:
       stream:
-        description: "Stream: bot (GitHub escrow-bot actor) or base (Base RPC logs)"
+        description: "Stream: bot (GitHub escrow-bot actors) or base (Base RPC logs)"
         default: "bot"
         required: true
       target:
-        description: "Bot app short name (e.g. bountic-bot) or contract address"
-        default: "bountic-bot"
+        description: "Comma watchlist: bot app short names or contract addresses"
+        default: "bountic-bot,algora-io,gitwork-io"
         required: true
       limit:
-        description: "Max results"
+        description: "Max results per target"
         default: "10"
         required: true
+  schedule:
+    - cron: "*/15 * * * *"
 jobs:
   search:
     runs-on: ubuntu-latest
@@ -21,9 +23,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: run direct stream
         env:
-          SEARCH_STREAM: ${{ inputs.stream }}
-          SEARCH_TARGET: ${{ inputs.target }}
-          SEARCH_LIMIT: ${{ inputs.limit }}
+          SEARCH_STREAM: ${{ inputs.stream || 'bot' }}
+          SEARCH_TARGET: ${{ inputs.target || 'bountic-bot,algora-io,gitwork-io' }}
+          SEARCH_LIMIT: ${{ inputs.limit || '10' }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 search.py
       - uses: actions/upload-artifact@v4
