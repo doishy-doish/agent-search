@@ -1,102 +1,67 @@
-#!/usr/bin/env python3
-"""Query the local SearXNG service (HTML format; stock images only enable html), save JSON results. stdlib only."""
-import html as ihtml
-import json, os, sys, time, traceback, urllib.error, urllib.parse, urllib.request
-from html.parser import HTMLParser
-BASE = os.environ.get("SEARXNG_URL", "http://localhost:8888")
-QUERY = os.environ.get("SEARCH_QUERY", "USDC bounty open source")
+import json, os, urllib.request, urllib.parse
+
+STREAM = os.environ.get("SEARCH_STREAM", "bot")
+TARGET = os.environ.get("SEARCH_TARGET", "bountic-bot")
 LIMIT = int(os.environ.get("SEARCH_LIMIT", "10"))
-CATEGORIES = os.environ.get("SEARCH_CATEGORIES", "general,it")
-OUT = os.environ.get("SEARCH_OUT", "results/results.json")
-UA = {"User-Agent": "Mozilla/5.0 (agent-search)", "Accept": "text/html"}
-class ResultsParser(HTMLParser):
-    def __init__(self):
-        super().__init__()
-        self.items = []
-        self.cur = None
-        self.in_h3 = False
-        self.in_a = False
-        self.in_content = False
-    def handle_starttag(self, tag, attrs):
-        a = dict(attrs)
-        cls = a.get("class", "")
-        if tag == "article" and "result" in cls.split():
-            self.cur = {"title": "", "url": "", "content": "", "engine": ""}
-        elif self.cur is not None:
-            if tag == "h3":
-                self.in_h3 = True
-            elif tag == "a" and self.in_h3 and not self.cur["url"]:
-                self.cur["url"] = a.get("href", "")
-                self.in_a = True
-            elif tag == "p" and "content" in cls.split():
-                self.in_content = True
-    def handle_data(self, data):
-        if self.cur is None:
-            return
-        if self.in_a:
-            self.cur["title"] += data
-        elif self.in_content:
-            self.cur["content"] += data
-    def handle_endtag(self, tag):
-        if tag == "a":
-            self.in_a = False
-        elif tag == "h3":
-            self.in_h3 = False
-        elif tag == "p" and self.in_content:
-            self.in_content = False
-        elif tag == "article" and self.cur is not None:
-            c = self.cur
-            c["title"] = ihtml.unescape(c["title"]).strip()
-            c["content"] = ihtml.unescape(c["content"]).strip()[:300]
-            if c["url"] and not c["url"].startswith(("http://", "https://", "/")):
-                c["url"] = ""
-            if c["title"] and c["url"]:
-                self.items.append(c)
-            self.cur = None
-def fetch(url, timeout):
-    req = urllib.request.Request(url, headers=UA)
+GHTOKEN = os.environ.get("GITHUB_TOKEN", "")
+
+def gh_get(url):
+    headers = {"Accept": "application/vnd.github+json", "User-Agent": "agent-search"}
+    if GHTOKEN:
+        headers["Authorization"] = "Bearer " + GHTOKEN
+    req = urllib.request.Request(url, headers=headers)
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return json.load(r)
+
+def rpc_post(url, method, params):
+    payload = json.dumps({"jsonrpc": "2.0", "method": method, "params": params, "id": 1}).encode()
+    req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return json.load(r)
+
+def bot_stream():
+    q = "commenter:app/%s is:open is:issue" % TARGET
+    url = "https://api.github.com/search/issues?q=" + urllib.parse.quote(q) + "&per_page=%d" % LIMIT
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            return r.status, r.read()
-    except urllib.error.HTTPError as e:
-        return e.code, e.read()
-def wait_ready(timeout=150):
-    s = time.time()
-    last = ""
-    while time.time() - s < timeout:
+        j = gh_get(url)
+    except Exception as e:
+        return "commenter:app/%s" % TARGET, []
+    items = []
+    for it in (j.get("items") or [])[:LIMIT]:
+        items.append({"title": it.get("title", ""), "url": it.get("html_url", ""), "content": (it.get("body") or "")[:300]})
+    return q, items
+
+def base_stream():
+    eps = ["https://base-rpc.publicnode.com"]
+    cur = None
+    for ep in eps:
         try:
-            st, body = fetch(BASE + "/", 5)
-            if st == 200:
-                return True, ""
-            last = f"root -> {st}"
-        except Exception as e:
-            last = f"{type(e).__name__}: {e}"
-        time.sleep(3)
-    return False, last
-def search(q):
-    url = BASE + "/search?" + urllib.parse.urlencode({"q": q, "categories": CATEGORIES})
-    st, body = fetch(url, 30)
-    if st != 200:
-        raise RuntimeError(f"search -> HTTP {st}: {body[:200]!r}")
-    p = ResultsParser()
-    p.feed(body.decode("utf-8", "replace"))
-    return p.items[:LIMIT]
-def main():
-    os.makedirs(os.path.dirname(OUT) or ".", exist_ok=True)
+            b = rpc_post(ep, "eth_blockNumber", [])
+            cur = int(b["result"], 16)
+            rpc_url = ep
+            break
+        except Exception:
+            continue
+    if cur is None:
+        return "base-logs:%s" % TARGET, []
+    frm = hex(cur - 2000)
     try:
-        ok, last = wait_ready()
-        if not ok:
-            raise RuntimeError(f"service not ready: {last}")
-        items = search(QUERY)
-        with open(OUT, "w") as f:
-            json.dump({"query": QUERY, "count": len(items), "items": items}, f, indent=2)
-        print(f"saved {len(items)} results to {OUT}")
-        for it in items:
-            print(f"- {it['title']} :: {it['url']}")
+        g = rpc_post(rpc_url, "eth_getLogs", [{"address": TARGET, "fromBlock": frm, "toBlock": "latest"}])
+        logs = g.get("result") or []
     except Exception:
-        with open("results/debug.txt", "w") as f:
-            f.write(traceback.format_exc())
-        print(traceback.format_exc())
-        sys.exit(1)
-if __name__ == "__main__":
-    main()
+        logs = []
+    items = []
+    for l in logs[:LIMIT]:
+        tx = l.get("transactionHash", "")
+        items.append({"title": tx, "url": "https://basescan.org/tx/" + tx, "content": "block %s topics %s" % (l.get("blockNumber"), json.dumps(l.get("topics", [])))})
+    return "base-logs:%s" % TARGET, items
+
+if STREAM == "base":
+    query, items = base_stream()
+else:
+    query, items = bot_stream()
+
+os.makedirs("results", exist_ok=True)
+with open("results/results.json", "w") as f:
+    json.dump({"query": query, "count": len(items), "items": items}, f, indent=2)
+print("wrote %d items for %s" % (len(items), query))
