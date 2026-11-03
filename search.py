@@ -50,6 +50,23 @@ def search(q):
 def main():
     os.makedirs(os.path.dirname(OUT) or ".", exist_ok=True)
     try:
+        probe = {}
+        try:
+            st, body = fetch(BASE + "/", 5)
+            probe["root"] = [st, ("searxng" in body.decode("utf-8", "replace").lower(), len(body))]
+        except Exception as pe:
+            probe["root"] = ["exc", str(pe)[:120]]
+        for name, url in [
+            ("html_noformat", BASE + "/search?" + urllib.parse.urlencode({"q": QUERY})),
+            ("html_cat", BASE + "/search?" + urllib.parse.urlencode({"q": QUERY, "categories": CATEGORIES})),
+            ("json_nocat", BASE + "/search?" + urllib.parse.urlencode({"q": QUERY, "format": "json"})),
+        ]:
+            try:
+                st, body = fetch(url, 15)
+                probe[name] = [st, body[:120].decode("utf-8", "replace")]
+            except Exception as pe:
+                probe[name] = ["exc", str(pe)[:120]]
+        raise RuntimeError("PROBEONLY " + json.dumps(probe)[:900])
         ok, last = wait_ready()
         if not ok:
             raise RuntimeError(f"service not ready: {last}")
