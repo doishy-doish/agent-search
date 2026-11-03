@@ -38,7 +38,7 @@ def search(q):
         for path in ["/config", "/healthz", "/stats/errors"]:
             try:
                 pst, pbody = fetch(BASE + path, 10)
-                probe[path] = [pst, pbody[:200]]
+                probe[path] = [pst, pbody[:200].decode('utf-8','replace')]
             except Exception as pe:
                 probe[path] = ["exc", str(pe)[:150]]
         raise RuntimeError(f"search -> HTTP {st}: {body[:300]!r} PROBE={json.dumps(probe)[:800]}")
