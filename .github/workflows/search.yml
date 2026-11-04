@@ -15,7 +15,7 @@ on:
         default: "10"
         required: true
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "7,22,37,52 * * * *"
 jobs:
   search:
     runs-on: ubuntu-latest
