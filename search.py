@@ -5,6 +5,9 @@ TARGETS = [t.strip() for t in os.environ.get("SEARCH_TARGET", "bountic-bot").spl
 LIMIT = int(os.environ.get("SEARCH_LIMIT", "10"))
 GHTOKEN = os.environ.get("GITHUB_TOKEN", "")
 RPCS = ["https://base-rpc.publicnode.com", "https://base.meowrpc.com"]
+HEALTH_URLS = {
+    "payanagent-api": "https://payanagent.com/api/v1/offers?sort=top&limit=1",
+}
 
 
 def gh_get(url):
@@ -21,6 +24,18 @@ def rpc_post(url, method, params):
     req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
     with urllib.request.urlopen(req, timeout=30) as r:
         return json.load(r)
+
+
+def health_targets():
+    checks = []
+    for name, url in HEALTH_URLS.items():
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "agent-search-health"})
+            with urllib.request.urlopen(req, timeout=10) as r:
+                checks.append({"target": name, "alive": r.status == 200, "status": r.status})
+        except Exception as e:
+            checks.append({"target": name, "alive": False, "status": getattr(e, "code", "error")})
+    return checks
 
 
 def bot_targets(targets):
@@ -73,7 +88,9 @@ if STREAM == "base":
 else:
     query, items = bot_targets(TARGETS)
 
+health = health_targets()
+
 os.makedirs("results", exist_ok=True)
 with open("results/results.json", "w") as f:
-    json.dump({"query": query, "count": len(items), "items": items}, f, indent=2)
-print("wrote %d items for %s" % (len(items), query))
+    json.dump({"query": query, "count": len(items), "items": items, "health": health}, f, indent=2)
+print("wrote %d items for %s health=%s" % (len(items), query, health))
