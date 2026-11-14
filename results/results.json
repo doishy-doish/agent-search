@@ -1,0 +1,43 @@
+{
+  "query": "bot-watch:bountic-bot,bountyhub-app,opire,algora-io,gitwork-io",
+  "count": 5,
+  "items": [
+    {
+      "stream": "bot:bountic-bot",
+      "title": "Feature Request: Multiple PR contributors payout distribution",
+      "url": "https://github.com/skndash96/bountic/issues/12",
+      "content": "\n### Node.js version\n\n24\n\n### Database and its version\n\n16.2\n\n### Operating system name and version\n\nLinux\n\n### Browser name\n\n_No response_\n\n### What happended?\n\nAs per the documentation, the GET cart endpoint supports returning `items.variant.inventory_quantity`\nbut it doesn't return. See actual be"
+    },
+    {
+      "stream": "bot:bountyhub-app",
+      "title": "feat(web): modernize Web GUI and add Agent Visualizer (apps/web)",
+      "url": "https://github.com/romankurnovskii/etemaro/issues/342",
+      "content": "## Overview\nImprove and modernize the web GUI located in [`apps/web`](apps/web). The web application serves as a minimalist, engineering-first operator console that connects directly to the Etemaro CLI daemon services (HTTP and WebSocket JSON-RPC / IPC).\n\nThis issue requests a design refresh adherin"
+    },
+    {
+      "stream": "bot:bountyhub-app",
+      "title": "\ud83c\udfaf Fail with descriptive error instead of silently sending unauthenticated API requests when keyring access fails",
+      "url": "https://github.com/condoraltidoi32/cli/issues/1",
+      "content": "## \ud83d\udcdd Description\nWhen executing `gh api` commands, `cli` attempts to resolve authentication tokens for the target host via the configured credential store (such as the system keyring, environment variables, or config files). If credential retrieval from the system keyring fails due to an operational"
+    },
+    {
+      "stream": "bot:bountyhub-app",
+      "title": "\ud83c\udfaf Differentiate GitHub API Failures from Missing Webhooks to Prevent Erroneous Reconciliation",
+      "url": "https://github.com/muckomdeead/argo-c/issues/1",
+      "content": "## \ud83d\udcdd Description\nWhen querying the GitHub API to check for the existence or status of repository webhooks, non-404 API failures (such as HTTP 429 Rate Limits, 5xx Server Errors, network timeouts, or 401/403 Authentication/Authorization issues) are incorrectly interpreted as the webhook being absent."
+    },
+    {
+      "stream": "bot:bountyhub-app",
+      "title": "Custom theme and color feature",
+      "url": "https://github.com/freelensapp/freelens/issues/1280",
+      "content": "> [!WARNING]\n> **Status update (2026-08-31): this issue is assigned to @gambhirsharma and will be closed by PR #1431 (accent color) right after the Freelens v2 release. No further PRs or bounty claims are accepted, from humans or bots, so please do not ask whether the bounty is available: it is not."
+    }
+  ],
+  "health": [
+    {
+      "target": "payanagent-api",
+      "alive": false,
+      "status": 500
+    }
+  ]
+}
